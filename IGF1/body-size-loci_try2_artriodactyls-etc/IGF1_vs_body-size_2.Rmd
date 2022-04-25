@@ -1,0 +1,457 @@
+---
+title: "IGF1 sites that correlate with body size in artiodactyls"
+author: "Yury V Bukhman"
+date: "2/18/2022"
+output:
+  html_document:
+    df_print: paged
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Yury V Bukhman, 18 Feb 2022
+Project: /BWGENOME/Interesting_genes/IGF1/body-size-loci_try2_artriodactyls-etc/3_body-size-loci
+
+## Set-up
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(sequencing)
+# setwd("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/IGF1/body-size-loci_try2_artriodactyls-etc/3_body-size-loci")
+setwd("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/IGF1/body-size-loci_try2_artriodactyls-etc/3_body-size-loci")
+# pantheria <- read_tsv("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/IGF1/PanTHERIA_1-0_WR05_Aug2008.txt")
+pantheria <- read_tsv("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/IGF1/PanTHERIA_1-0_WR05_Aug2008.txt")
+```
+
+### Functions
+Plot the distribution of nucleotide bases vs. log10(body mass) at a specified position in the alignment
+```{r}
+plot_align_pos <- function(my_species, alignment_matrix, body_mass, i) {
+  # Get the data
+  bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+  data1 <- merge(body_mass, bases, by = "species")
+  
+  # Plot
+  ggplot(data1) + geom_jitter(aes(x = habitat, y = adult_body_mass, col = base), width = 0.25, height = 0) + scale_y_log10()
+}
+```
+
+## Multiple sequence alignment
+Read it in
+```{r}
+origMAlign <- readDNAMultipleAlignment(filepath = "../2a_clustalw/IGF1_genomic_seqs.aln", format="clustal")
+origMAlign
+```
+
+Convert to a character matrix
+```{r}
+alignment_matrix <- as.matrix(origMAlign@unmasked)
+```
+
+Define the range of the alignment columns that are present in all species. It starts at the first position that has no "-" symbols and stops at the last such position
+```{r}
+# Scan forward from the beginning of the matrix to find the start
+for (i in 1:ncol(alignment_matrix)) {
+  if (sum(alignment_matrix[,i] == "-") == 0) break
+}
+all_start_col <- i
+
+# Scan backward from the end of the matrix to find the stop
+for (i in ncol(alignment_matrix):1) {
+  if (sum(alignment_matrix[,i] == "-") == 0) break
+}
+all_stop_col <- i
+
+cat("All species are present between columns", all_start_col, "and", all_stop_col)
+```
+
+Define the range of the alignment columns that are present in blue whale.
+```{r}
+# Scan forward from the beginning of the matrix to find the start
+for (i in 1:ncol(alignment_matrix)) {
+  if (alignment_matrix["Balaenoptera_musculus",i] != "-") break
+}
+bw_start_col <- i
+
+# Scan backward from the end of the matrix to find the stop
+for (i in ncol(alignment_matrix):1) {
+  if (alignment_matrix["Balaenoptera_musculus",i] != "-") break
+}
+bw_stop_col <- i
+
+cat("blue whale range is", bw_start_col, "-", bw_stop_col)
+```
+
+## Body mass values
+```{r}
+my_species <- rownames(alignment_matrix) %>% str_replace_all("_", " ")
+body_mass <- pantheria[pantheria$MSW05_Binomial %in% my_species, c("MSW05_Binomial","5-1_AdultBodyMass_g")]
+names(body_mass) <- c("species","adult_body_mass")
+
+cat("These species are missing from Pantheria:\n")
+setdiff(my_species, body_mass$species)
+```
+
+### Manually add species missing in Pantheria
+_Bos taurus_ body mass can vary widely. I will use the mass of a Hereford bull per https://en.wikipedia.org/wiki/Hereford_cattle, 1,800 lbs = 816,466 gram. The Hereford is the breed that was used in the genome sequencing project: see https://www.ncbi.nlm.nih.gov/assembly/GCF_002263795.1.
+
+_Bos indicus_ is zebu cattle. The genome is of the Nelore breed: https://www.ncbi.nlm.nih.gov/genome/3418?genome_assembly_id=214334. A Nelore bull can weigh up to 1,000 kg per https://treseus.com/en/cattle-raising/husbandry/ 
+
+_Bos indicus x Bos taurus_ - will assume 900 kg, the average between _tarus_ and _indicus_
+
+_Bos mutus_ body mass: use maximal body mass of a bull per https://en.wikipedia.org/wiki/Wild_yak, 1,200 kg 
+
+_Bison bison bison_: will use _Bison bison_ from Pantheria
+
+_Cervus canadensis_ males typically weigh up to 497 kg per https://en.wikipedia.org/wiki/Elk#Characteristics
+
+_Camelus ferus_ is similar, though a little bit smaller, than _Camelus bactrianus_, per https://en.wikipedia.org/wiki/Wild_Bactrian_camel. I will use  _Camelus bactrianus_ body weight from Pantheria for it
+
+_Neophocaena asiaeorientalis as_ - use _Neophocaena asiaeorientalis_ body weight from Wikipedia
+
+_Balaenoptera acutorostrata sca_ - use _Balaenoptera acutorostrata_ from Pantheria
+
+_Vicugna pacos_ is alpaca per NCBI Taxonomy, https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=30538. It is the same as _Lama pacos_ per https://en.wikipedia.org/wiki/Alpaca. Its mass is up to 65 kg per ADW, https://animaldiversity.org/accounts/Lama_pacos/#physical_description.
+
+_Odocoileus virginianus texanus_ - will use _Odocoileus virginianus_ from Pantheria (white tailed deer)
+```{r}
+body_mass$adult_body_mass[body_mass$species == "Bos taurus"] <- 816466
+body_mass <- rbind(body_mass, data.frame(species = "Bos indicus", adult_body_mass = 1e6))
+body_mass <- rbind(body_mass, data.frame(species = "Bos indicus x Bos taurus", adult_body_mass = 9e5))
+body_mass <- rbind(body_mass, data.frame(species = "Bos mutus", adult_body_mass = 1.2e6))
+body_mass <- rbind(body_mass, data.frame(species = "Bison bison bison", adult_body_mass = subset(pantheria, MSW05_Binomial == "Bison bison")$`5-1_AdultBodyMass_g`))
+body_mass <- rbind(body_mass, data.frame(species = "Cervus canadensis", adult_body_mass = 497e3))
+body_mass <- rbind(body_mass, data.frame(species = "Camelus ferus", adult_body_mass = subset(pantheria, MSW05_Binomial == "Camelus bactrianus")$`5-1_AdultBodyMass_g`))
+body_mass <- rbind(body_mass, data.frame(species = "Neophocaena asiaeorientalis as", adult_body_mass = 71800))
+body_mass <- rbind(body_mass, data.frame(species = "Balaenoptera acutorostrata sca", adult_body_mass = subset(pantheria, MSW05_Binomial == "Balaenoptera acutorostrata")$`5-1_AdultBodyMass_g`))
+body_mass <- rbind(body_mass, data.frame(species = "Vicugna pacos", adult_body_mass = 65e3))
+body_mass <- rbind(body_mass, data.frame(species = "Odocoileus virginianus texanus", adult_body_mass = subset(pantheria, MSW05_Binomial == "Odocoileus virginianus")$`5-1_AdultBodyMass_g`))
+arrange(body_mass, adult_body_mass)
+```
+
+Drop the human
+```{r}
+body_mass <- body_mass %>% filter(species != "Homo sapiens")
+```
+
+Assign habitat
+```{r}
+body_mass <- body_mass %>% mutate(habitat = "terrestrial")
+body_mass$habitat[body_mass$species %in% c("Balaenoptera musculus","Delphinapterus leucas","Globicephala melas","Lagenorhynchus obliquidens","Monodon monoceros","Lipotes vexillifer","Lipotes vexillifer","Orcinus orca","Phocoena sinus","Physeter catodon","Neophocaena asiaeorientalis as","Balaenoptera acutorostrata sca")] <- "aquatic"
+arrange(body_mass, desc(habitat), adult_body_mass)
+```
+
+Plot body mass vs. habitat
+```{r}
+ggplot(body_mass) + geom_jitter(aes(x = habitat, y = adult_body_mass), width = 0.2) + scale_y_log10()
+```
+
+## Linear models on the columns of the alignment matrix
+### Try1: a simple model of log(mass) ~ base
+```{r}
+pvals <- double()
+for (i in bw_start_col:bw_stop_col) {
+  # Report progress
+  if (i %% 1e4 == 0) cat(i, "\n")
+  
+  # Build a data frame of bases and weights
+  bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+  data1 <- merge(body_mass, bases, by = "species")
+  
+  # If we are near the edges of the alignment matrix, filter out missing species
+  if (i < all_start_col | i > all_stop_col) data1 <- filter(data1, base != "-")
+  
+  # Compute the weight vs. base p value
+  base_counts <- summary(as.factor(data1$base))
+  if (nrow(data1) == 0 | length(base_counts) == 1 | sort(base_counts, decreasing = TRUE)[2] == 1) {
+    # Can't do statistics if there aren't at least 2 kinds of bases and and at least 2 instances of the minor allele
+    pval <- 1
+  } else {
+    # Compute p value using a linear model
+    lm1 <- lm(log(adult_body_mass) ~ base, data = data1)
+    lmsum <- summary(lm1)
+    pval <- lmsum$coefficients[2,"Pr(>|t|)"]
+  }
+  
+  # Append p value to the vector of p values
+  pvals <- c(pvals, pval)
+}
+```
+Summary of computed p values
+```{r}
+summary(pvals)
+```
+
+Manhattan plot of the p values
+```{r}
+ggplot() + geom_step(aes(x = bw_start_col:bw_stop_col, y = -log10(pvals)), size = 0.1)
+```
+
+
+The most significant positions
+```{r}
+which(pvals < 1e-6) + bw_start_col - 1
+```
+
+
+Plot the most significant position
+```{r}
+# Index
+i <- 140529
+
+# Get the data
+bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+data1 <- merge(body_mass, bases, by = "species")
+
+# Plot
+ggplot(data1) + geom_jitter(aes(x = habitat, y = adult_body_mass, col = base), width = 0.25, height = 0) + scale_y_log10()
+```
+This position is missing in cetacea. The high statistical significance is driven by the differences among terrestrial artiodactyls, i.e. large cattle vs. small antelopes, sheep, and goats. Since this position is outside of the region where all species are represented, the species with missing bases were ignored
+
+
+The top 3 hits
+```{r}
+which(pvals < 1e-5) + bw_start_col - 1
+```
+62921-62922 is the edge of a gap that's different in 4 large whales. _O.orca_ has a large insertion, the 3 other large whales have much smaller insertions in this site. All of this is adjacent to a poly-A run common to all cetaceans, where the larger cetacean species have insertions compared to the smaller ones. Large whales look like terrestrial artiodactyls: small whales have lost a segment here
+
+131754 is in a poly-A region with occasional insertions of Gs. Whether it's significant or not depends on what do you think the optimal alignment must be. Lining up the G's shows that large whales are not special
+
+### Try 2: account for habitat
+```{r}
+pvals2 <- double()
+for (i in bw_start_col:bw_stop_col) {
+  # Report progress
+  if (i %% 1e4 == 0) cat(i, "\n")
+  
+  # Build a data frame of bases and weights
+  bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+  data1 <- merge(body_mass, bases, by = "species")
+  
+  # If we are near the edges of the alignment matrix, filter out missing species
+  if (i < all_start_col | i > all_stop_col) data1 <- filter(data1, base != "-")
+  
+  # Compute the weight vs. base p value
+  base_counts <- summary(as.factor(data1$base))
+  if (nrow(data1) == 0 | 
+      length(unique(data1$habitat)) == 1 | 
+      length(base_counts) == 1 | 
+      sort(base_counts, decreasing = TRUE)[2] == 1) {
+    # Can't do statistics unless all of the following conditions are met:
+    # 1. We have at least some non-missing data
+    # 2. Both habitats are represented
+    # 3. We have at least 2 kinds of bases
+    # 4. We have at least 2 instances of the minor allele
+    pval <- NA
+  } else {
+    # Compute p value using a linear model
+    lm1 <- lm(log(adult_body_mass) ~ habitat + base, data = data1)
+    lmsum <- summary(lm1)
+    if (nrow(lmsum$coefficients) == 3) {
+      pval <- lmsum$coefficients[3,"Pr(>|t|)"]
+    } else {
+      # the base is confounded with the habitat
+      pval <- NA
+    }
+  }
+  
+  # Append p value to the vector of p values
+  pvals2 <- c(pvals2, pval)
+}
+```
+
+Summary of computed p values
+```{r}
+summary(pvals2)
+```
+
+Manhattan plot of the p values
+```{r}
+ggplot() + geom_step(aes(x = bw_start_col:bw_stop_col, y = -log10(pvals2)), size = 0.1)
+```
+
+
+The most significant positions
+```{r}
+which(pvals2 < 10^-4.5) + bw_start_col - 1
+```
+
+
+## Plot a selected position
+```{r}
+# Index
+i <- 48867
+
+# Get the data
+alleles <- data.frame(species = my_species, allele = alignment_matrix[,i])
+data1 <- merge(body_mass, alleles, by = "species")
+
+# Plot
+ggplot(data1) + geom_jitter(aes(x = habitat, y = adult_body_mass, col = allele), width = 0.25, height = 0) + scale_y_log10() + labs(y = "adult body mass, g")
+```
+In all of these positions, large whales have the same nucleotide as land artiodactyls, while small cetaceans have a different one. However, the tree computed by Jalview from the alignment does not have large whales clustering with land artiodactyls. Nor does the ClustalW guide tree.
+
+A sequence in the blue whale
+```{r}
+alignment_matrix["Balaenoptera_musculus",  62955:62975] %>% paste(collapse = "")
+```
+35626, 36017 are located in the intron between exons 2 and 3
+106724 is between exons 3 and 4
+
+The insertion in the orca
+```{r}
+alignment_matrix["Orcinus_orca", 62735:62921] %>% paste(collapse = "")
+```
+It also looks like an insertion, flanked with poly-A runs, in the cetaceans-only alignment. The coordinates of the insertion in the cetaceans-only alignment are 42399-42597. The boundaries align differently, so the high statistical significance of 2 positions on the 3' edge of the insertion look spurious. It's a repeat: BLAST only finds it when the masking of species-specific repeats is turned off. It then finds multiple high-scoring hits. The top hit is in IGF1 gene, NW_004438444.1:6484854-6485040. This is, indeed, a repeat, SINE:CHR2A_Ttr
+
+The insertion in the human:
+```{r}
+alignment_matrix["Homo_sapiens", 62735:62921] %>% paste(collapse = "")
+```
+The 3' half is a LINE L2b element + a portion of LTR THE1C element
+
+## Compute p values with different made-up distributions of two nucleotides and different models in order to select an optimal model
+
+### Different nucleotide in 4 large whales
+Build a simulated dataset
+```{r}
+i <- 106724
+
+# Build a data frame of bases and weights
+bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+data1 <- merge(body_mass, bases, by = "species")
+
+# Assign new nucleotides for the simulation
+data1$base2 <- NA
+for (i in 1:nrow(data1)) {
+  if (data1[i, "base"] == "G" && data1[i, "habitat"] == "aquatic") {
+    data1[i, "base2"] <- "A"
+  } else {
+    data1[i, "base2"] <- "G"
+  }
+}
+
+# Plot the simulated data
+ggplot(data1) + geom_jitter(aes(x = habitat, y = adult_body_mass, col = base2), width = 0.25, height = 0) + scale_y_log10()
+```
+#### Model 1: simple one-factor model
+
+```{r}
+lm1 <- lm(log(adult_body_mass) ~ base2, data = data1)
+summary(lm1)
+```
+
+Do we have any data that are distributed in a similar way?
+```{r}
+which(pvals < 1e-5) + bw_start_col - 1
+```
+
+62921-62922 are at the edge of a gap: see above
+
+A different base in 5 largest whales at 131754. However, this is within an area of poly-A repeats and not really significant: see above
+
+140529 is missing data in most species: see above
+
+A less stringent threshold:
+```{r}
+which(pvals < 2.8e-5) + bw_start_col - 1
+```
+
+A different base in 3 large whales at 24474, 24791, 48867, 60627, 62044, 62965, 90106, 96218, 99043, 113202
+At there positions, dog tends to have the small-whale base, while human - large-whale one
+```{r}
+plot_align_pos(my_species, alignment_matrix, body_mass, 113202)
+```
+
+#### Model 2: two-factor model accounting for habitat
+```{r}
+lm1 <- lm(log(adult_body_mass) ~ habitat + base2, data = data1)
+summary(lm1)
+```
+
+Do we have any data that are distributed in this way?
+```{r}
+which(pvals2 < 2.8e-5) + bw_start_col - 1
+```
+
+They are all "inverted" relative to what I am hoping for, i.e. large whales look like land artiodactyls
+
+```{r}
+plot_align_pos(my_species, alignment_matrix, body_mass, 106724)
+```
+
+#### Model 3: swap terms
+```{r}
+lm1 <- lm(log(adult_body_mass) ~ base2 + habitat, data = data1)
+summary(lm1)
+```
+It's essentially identical to model 2
+
+#### Model 4: add interaction term
+```{r}
+lm1 <- lm(log(adult_body_mass) ~ habitat*base2, data = data1)
+summary(lm1)
+```
+This didn't help
+
+### Different nucleotide in 4 large whales and in large artiodactyls
+
+Build a simulated dataset
+```{r}
+i <- 106724
+
+# Build a data frame of bases and weights
+bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+data1 <- merge(body_mass, bases, by = "species")
+
+# Assign new nucleotides for the simulation
+data1$base2 <- NA
+for (i in 1:nrow(data1)) {
+  if (data1[i, "base"] == "G" && data1[i, "habitat"] == "aquatic") {
+    data1[i, "base2"] <- "A"
+  } else if (data1[i, "habitat"] == "terrestrial" && data1[i, "adult_body_mass"] > 10^5.5) {
+    data1[i, "base2"] <- "A"
+  } else {
+    data1[i, "base2"] <- "G"
+  }
+}
+
+# Plot the simulated data
+ggplot(data1) + geom_jitter(aes(x = habitat, y = adult_body_mass, col = base2), width = 0.25, height = 0) + scale_y_log10()
+```
+#### Model 1: simple one-factor model
+
+```{r}
+lm1 <- lm(log(adult_body_mass) ~ base2, data = data1)
+summary(lm1)
+```
+
+Do we have any data that are distributed in a similar way?
+```{r}
+which(pvals < 4.5e-5) + bw_start_col - 1
+```
+Too many hits
+
+#### Model 2: two-factor model accounting for habitat
+```{r}
+lm1 <- lm(log(adult_body_mass) ~ habitat + base2, data = data1)
+summary(lm1)
+```
+
+Do we have any data that are distributed in this way?
+```{r}
+which(pvals2 < 1e-6) + bw_start_col - 1
+```
+No such hits
+
+```{r}
+min(is.finite(pvals2))
+```
+
+### Conclusions
+I don't think we have convincing cases of convergent evolution in cetaceans and land artiodactyls. If such cases existed, they would have produced highly significant hits in the second model
+
+I may want to repeat the analysis without the Orca, as Orca appears to have been misaligned

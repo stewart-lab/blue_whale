@@ -1,0 +1,175 @@
+---
+title: "Plot XRCC1 duplication in blue whale compared to other genomes"
+author: "Yury V Bukhman"
+date: "02/02/2022"
+output:
+  html_document:
+    df_print: paged
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Yury V Bukhman, 02 Feb 2022
+Project: BWGENOME/Interesting_genes/XRCC1
+
+## Set-up
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(rentrez)
+setwd("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/XRCC1")
+# setwd("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/XRCC1")
+```
+
+Files and genes
+```{r}
+VAQUITA_MASHMAP_FILE <- "/Volumes/home/Projects/BWGENOME/BWGENOME-441_mashmap_2/vaquita_vs_blue_whale/vaquita_vs_blue_whale_mashmap_output.txt"
+COW_MASHMAP_FILE <- "/Volumes/home/Projects/BWGENOME/BWGENOME-441_mashmap_2/cow_vs_blue_whale/cow_vs_blue_whale_mashmap_output.txt"
+BW_GENE_COPY_1 <- list(name = "XRCC1", chr = 19, scaffold = "NC_045803.1", start = 11718977, end = 11740714, strand = "+")
+BW_GENE_COPY_2 <- list(name = "LOC118885654", chr = 19, scaffold = "NC_045803.1", start = 11788676, end = 11812259, strand = "+")
+VAQ_GENE <- list(name = "XRCC1", chr = 19, scaffold = "NC_045781.1", start = 10753697, end = 10776525, strand = "+")
+COW_GENE <- list(name = "XRCC1", chr = 18, scaffold = "NC_037345.1", start = 51744823, end = 51763818, strand = "-")
+```
+
+## Vaquita vs. blue whale
+MashMap
+```{r}
+vaq_vs_bw <- read_delim(VAQUITA_MASHMAP_FILE, " ", col_names = c("query_name", "query_length", "query_start", "query_end", "strand", "target_name", "target_length", "target_start", "target_end", "identity"))
+```
+### Relevant segments
+Blue whale gene copy 1
+```{r}
+filter(vaq_vs_bw, target_name == BW_GENE_COPY_1$scaffold, target_start <= BW_GENE_COPY_1$start, target_end >= BW_GENE_COPY_1$end)
+```
+Blue whale gene copy 2
+```{r}
+filter(vaq_vs_bw, target_name == BW_GENE_COPY_2$scaffold, target_start <= BW_GENE_COPY_2$start, target_end >= BW_GENE_COPY_2$end)
+```
+Vaquita gene
+```{r}
+(mashmap_subset <- filter(vaq_vs_bw, query_name == VAQ_GENE$scaffold, query_start <= VAQ_GENE$start, query_end >= VAQ_GENE$end))
+```
+The two segments that contain the vaquita gene are the same as those containing the two copies of the blue whale gene. The segment of the vaquita chromosome encompassing the duplication is from 10555000 to 10974999 (419,999 bp); blue whale from 11519388 to 12018211 (498,823 bp)
+
+The segment that's duplicated in the blue whale corresponds to the one from 10740000 to 10804999 in vaquita, 64,999 bp. It contains the XRCC1 gene. It contains a couple of other genes, in addition to XRCC1
+
+Since the duplication is 65 kbp and there's also a 11 kbp insertion between the two duplicates in the blue whale, I'll plot ~100 kbp down and ~100 kbp up from the break points. The plot shall be in blue whale coordinates, with vaquita coordinates converted to blue whale using two offsets, one before the break point and one after
+
+### Coordinate ranges and genes
+Range of blue whale coordinates
+```{r}
+start <- mashmap_subset$target_end[1] - 1e5
+end <- mashmap_subset$target_start[2] + 1e5
+```
+
+Offsets to convert vaquita genome coordinates to blue whale before and after the break point
+```{r}
+vaq_offset_1 <- mashmap_subset$target_end[1] - mashmap_subset$query_end[1]
+vaq_offset_2 <- mashmap_subset$target_start[2] - mashmap_subset$query_start[2]
+```
+
+Blue whale genes
+```{r}
+term <- paste0("Balaenoptera musculus[Organism]) AND 19[Chromosome] AND ", start, ":", end, "[Base Position]")
+bw_genes <- entrez_search(db = "gene", term = term)
+bw_genes_sum <- entrez_summary(db = "gene", id = bw_genes$ids)
+```
+
+Vaquita genes
+```{r}
+term <- paste0("Phocoena sinus[Organism]) AND 19[Chromosome] AND ", start - vaq_offset_1, ":", 
+               end - vaq_offset_2, "[Base Position]")
+vaq_genes <- entrez_search(db = "gene", term = term)
+vaq_genes_sum <- entrez_summary(db = "gene", id = vaq_genes$ids)
+```
+
+### Plot
+```{r}
+lwd1 = 5
+
+# Initial area of the plot
+plot(c(start,end), c(1,5), type = "n", xlab = "Blue whale genome coordinate", ylab = "", yaxt = "n")
+
+# Blue whale chromosome segment
+segments(start, 4, end, 4, col = "blue", lwd = lwd1, lend = 1)
+
+# Vaquita chromosome segments
+segments(start, 2, mashmap_subset$query_end[1] + vaq_offset_1, 2, 
+         col = "orange", lwd = lwd1, lend = 1)
+segments(mashmap_subset$query_end[1] + vaq_offset_2, 2, end, 2, 
+         col = "orange", lwd = lwd1, lend = 2)
+
+# Display duplicated segments in blue whale and vaquita
+segments(mashmap_subset$query_start[2] + vaq_offset_1, 1.5, 
+         mashmap_subset$query_end[1] + vaq_offset_1, 1.5)
+segments(mashmap_subset$query_start[2] + vaq_offset_1, 3.5,
+         mashmap_subset$query_end[1] + vaq_offset_1, 3.5)
+segments(mashmap_subset$query_start[2] + vaq_offset_2, 3.5,
+         mashmap_subset$query_end[1] + vaq_offset_2, 3.5)
+
+# Plot blue whale genes
+gene_names_to_plot <- c("CADM4","IRGQ","XRCC1","PHLDB3","LYPD3","SRRM5","LOC118885654")
+for (gene in bw_genes_sum) {
+  if (gene$name %in% c("XRCC1","LOC118885654")) {
+    col1 = "red"
+  } else {
+    col1 = "grey"
+  }
+  if (gene$genomicinfo$chrstart < gene$genomicinfo$chrstop) {
+    arrows(gene$genomicinfo$chrstart, 4.2, gene$genomicinfo$chrstop, 4.2, col = col1, 
+             lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene$genomicinfo$chrstart, 4.3, gene$name, cex = 0.5, adj = c(0,0))  
+    }
+  } else {
+    arrows(gene$genomicinfo$chrstart, 3.8, gene$genomicinfo$chrstop, 3.8, col = col1, 
+             lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene$genomicinfo$chrstop, 3.7, gene$name, cex = 0.5, adj = c(0,1))  
+    }
+  }
+}
+  
+# Plot vaquita genes
+for (gene in vaq_genes_sum) {
+  if (gene$name %in% c("XRCC1","LOC118885654")) {
+    col1 = "red"
+  } else {
+    col1 = "grey"
+  }
+  # Convert gene coordinates to blue whale
+  # mashmap_subset$query_end[1] is the break point: add vaq_offset_1 to gene coordinates before it and vaq_offset_2 after
+  if ((gene$genomicinfo$chrstart + gene$genomicinfo$chrstop)/2 < mashmap_subset$query_end[1]) {
+    gene_start <- gene$genomicinfo$chrstart + vaq_offset_1
+    gene_stop <- gene$genomicinfo$chrstop + vaq_offset_1
+  } else {
+    gene_start <- gene$genomicinfo$chrstart + vaq_offset_2
+    gene_stop <- gene$genomicinfo$chrstop + vaq_offset_2
+  }
+  # Now plot the genes
+  if (gene_start < gene_stop) {
+    arrows(gene_start, 2.2, gene_stop, 2.2, col = col1, 
+             lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene_start, 2.3, gene$name, cex = 0.5, adj = c(0,0))  
+    }
+  } else {
+    arrows(gene_start, 1.8, gene_stop, 1.8, col = col1, 
+             lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene_stop, 1.7, gene$name, cex = 0.5, adj = c(0,1))  
+    }
+  }
+}
+
+# Label the two genomes
+text(start, 5, "Blue whale", col = "blue", adj = c(0,1))
+text(start, 3, "Vaquita", col = "orange", adj = c(0,1))
+
+```
+
+
+

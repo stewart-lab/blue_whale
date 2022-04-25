@@ -1,0 +1,161 @@
+---
+title: "IGF1 sites that correlate with body size in cetaceans"
+author: "Yury V Bukhman"
+date: "2/8/2022"
+output:
+  html_document:
+    df_print: paged
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Yury V Bukhman, 08 Feb 2022
+Project: /BWGENOME/Interesting_genes/IGF1/body-size-analysis
+
+## Set-up
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(sequencing)
+setwd("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/IGF1/body-size-loci_try1_cetaceans-only/3_body-size-loci")
+```
+
+## Multiple sequence alignment
+Read it in
+```{r}
+origMAlign <- readDNAMultipleAlignment(filepath = "../2_clustal-omega-EBI/alignment_clustalo-E20220208-162331-0520-57625-p1m.clustal_num", format="clustal")
+```
+
+Convert to a character matrix
+```{r}
+alignment_matrix <- as.matrix(origMAlign@unmasked)
+```
+
+Define the range of the alignment columns that are present in all species. It starts at the first position that has no "-" symbols and stops at the last such position
+```{r}
+# Scan forward from the beginning of the matrix to find the start
+for (i in 1:ncol(alignment_matrix)) {
+  if (sum(alignment_matrix[,i] == "-") == 0) break
+}
+all_start_col <- i
+
+# Scan backward from the end of the matrix to find the stop
+for (i in ncol(alignment_matrix):1) {
+  if (sum(alignment_matrix[,i] == "-") == 0) break
+}
+all_stop_col <- i
+
+cat("All species are present between columns", all_start_col, "and", all_stop_col)
+```
+Note that position 84747, right after the stop, is of potential interest: G in Balaenoptera and Physeter, A in all others, missing in vaquita. BLAT search show that vaquita has A in there as well. Although stopping here would encompass vaquita IGF1, it would miss the last exon in some isoforoms of the Yangtze finless porpoise, blue whale, and probably other species. 
+
+Find where vaquita sequence ends
+```{r}
+for (i in ncol(alignment_matrix):1) {
+  if (alignment_matrix["Phocoena_sinus",i] != "-") break
+}
+cat("Vaquita sequence stops at", i)
+```
+So, to stop further downstream, I should have retrieved more of the vaquita sequence.
+
+Define the range of the alignment columns that are present in blue whale.
+```{r}
+# Scan forward from the beginning of the matrix to find the start
+for (i in 1:ncol(alignment_matrix)) {
+  if (alignment_matrix["Balaenoptera_musculus",i] != "-") break
+}
+bw_start_col <- i
+
+# Scan backward from the end of the matrix to find the stop
+for (i in ncol(alignment_matrix):1) {
+  if (alignment_matrix["Balaenoptera_musculus",i] != "-") break
+}
+bw_stop_col <- i
+
+cat("blue whale range is", bw_start_col, "-", bw_stop_col)
+```
+
+This is a wider region, but 1 species is still missing at the left edge of the region and 3 species at the right edge. Not ideal, but it will do for now.
+
+## Body mass values
+Read in PanTHERIA database
+```{r}
+pantheria <- read_tsv("../../../PanTHERIA_1-0_WR05_Aug2008.txt")
+```
+Get adult body mass values
+```{r}
+my_species <- rownames(alignment_matrix) %>% str_replace("_", " ") %>% str_remove("_.+")
+body_mass <- pantheria[pantheria$MSW05_Binomial %in% my_species, c("MSW05_Binomial","5-1_AdultBodyMass_g")]
+names(body_mass) <- c("species","adult_body_mass")
+body_mass <- rbind(body_mass, data.frame(species = "Neophocaena asiaeorientalis", adult_body_mass = 71800))
+body_mass %>% arrange(adult_body_mass)
+```
+
+## Linear models on the columns of the alignment matrix
+```{r}
+pvals <- double()
+for (i in bw_start_col:bw_stop_col) {
+  # Report progress
+  if (i %% 1e4 == 0) cat(i, "\n")
+  
+  # Build a data frame of bases and weights
+  bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+  data1 <- merge(body_mass, bases, by = "species")
+  
+  # If we are near the edges of the alignment matrix, filter out missing species
+  if (i < all_start_col | i > all_stop_col) data1 <- filter(data1, base != "-")
+  
+  # Compute the weight vs. base p value
+  base_counts <- summary(as.factor(data1$base))
+  if (length(base_counts) == 1 | sort(base_counts, decreasing = TRUE)[2] == 1) {
+    # Can't do statistics if there aren't at least 2 kinds of bases and and at least 2 instances of the minor allele
+    pval <- 1
+  } else {
+    # Compute p value using a linear model
+    lm1 <- lm(log(adult_body_mass) ~ base, data = data1)
+    lmsum <- summary(lm1)
+    pval <- lmsum$coefficients[2,"Pr(>|t|)"]
+  }
+  
+  # Append p value to the vector of p values
+  pvals <- c(pvals, pval)
+}
+```
+Summary of computed p values
+```{r}
+summary(pvals)
+```
+
+Manhattan plot of the p values
+```{r}
+ggplot() + geom_step(aes(x = bw_start_col:bw_stop_col, y = -log10(pvals)), size = 0.1)
+```
+
+
+The most significant positions
+```{r}
+which(pvals < 0.00126) + bw_start_col - 1
+```
+
+
+Plot a selected position
+```{r}
+# Index
+i <- 20813
+
+# Get the data
+bases <- data.frame(species = my_species, base = alignment_matrix[,i])
+data1 <- merge(body_mass, bases, by = "species")
+
+# Plot
+ggplot(data1) + geom_jitter(aes(x = 1, y = adult_body_mass, col = base), width = 0.25, height = 0) + scale_y_log10() + xlim(0,2)
+```
+
+The sequence in the blue whale
+```{r}
+alignment_matrix["Balaenoptera_musculus", 37760:37880] %>% paste(collapse = "")
+```
+

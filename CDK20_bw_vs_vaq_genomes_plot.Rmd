@@ -1,0 +1,173 @@
+---
+title: "Plot CDK20 duplication in blue whale compared to vaquita"
+author: "Yury V Bukhman"
+date: "03/17/2022"
+output:
+  html_document:
+    df_print: paged
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Yury V Bukhman, 17 Mar 2022
+Project: BWGENOME/final_stage_analyses/Interesting_genes/CDK20
+
+## Set-up
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(rentrez)
+setwd("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/CDK20")
+# setwd("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/CDK20")
+```
+
+Files and genes
+```{r}
+VAQUITA_MASHMAP_FILE <- "/Volumes/home/Projects/BWGENOME/BWGENOME-441_mashmap_2/vaquita_vs_blue_whale/vaquita_vs_blue_whale_mashmap_output.txt"
+BW_GENE_COPY_1 <- list(name = "CDK20", chr = 6, scaffold = "NC_045790.1", start = 18030561, end = 18034499, strand = "-")
+BW_GENE_COPY_2 <- list(name = "LOC118896861", chr = 6, scaffold = "NC_045790.1", start = 24150646, end = 24159437, strand = "+")
+VAQ_GENE <- list(name = "CDK20", chr = 6, scaffold = "NC_045768.1", start = 92239485, end = 92261082, strand = "-")
+```
+
+## Vaquita vs. blue whale
+MashMap
+```{r}
+vaq_vs_bw <- read_delim(VAQUITA_MASHMAP_FILE, " ", col_names = c("query_name", "query_length", "query_start", "query_end", "strand", "target_name", "target_length", "target_start", "target_end", "identity"))
+```
+### Relevant segments
+Blue whale gene copy 1
+```{r}
+filter(vaq_vs_bw, target_name == BW_GENE_COPY_1$scaffold, target_start <= BW_GENE_COPY_1$start, target_end >= BW_GENE_COPY_1$end)
+```
+Blue whale gene copy 2
+```{r}
+filter(vaq_vs_bw, target_name == BW_GENE_COPY_2$scaffold, target_start <= BW_GENE_COPY_2$start, target_end >= BW_GENE_COPY_2$end)
+```
+Vaquita gene
+```{r}
+(mashmap_subset <- filter(vaq_vs_bw, query_name == VAQ_GENE$scaffold, query_start <= VAQ_GENE$start, query_end >= VAQ_GENE$end))
+```
+The two vaquita segments matching the two blue whale CDK20-containing segments are not identical, although they do overlap. Additionally, neither of them fully contains the vaquita CDK20 gene. Here are the relevant vaquita genome intervals ordered by their start coordinate:
+
+|start|end|strand|description|
+|----:|--:|:----:|:----------|
+|92,239,485|92,261,082|-|vaquita CDK20 gene|
+|92,245,000|92,284,999|-|matches the blue whale segment that contains LOC118885654 on the "+" strand|
+|92,255,000|92,394,999|+|matches the blue whale segment that contains CDK20 on the "-" strand
+
+All segments that overlap vaquita CDK20:
+```{r}
+(mashmap_subset <- filter(vaq_vs_bw, query_name == VAQ_GENE$scaffold & query_start <= VAQ_GENE$end & query_end >= VAQ_GENE$start))
+```
+The first two segments in this table are the ones we have retrieved with the two copies of the blue whale gene. The third segment just barely overlaps the start of vaquita CDK20 and maps to a different blue whale chromosome. There is also a gap in blue whale corresponding to vaquita 92,239,999 - 92,245,000
+
+The entire map that includes the two blue whale segments and whatever is in between them:
+```{r}
+(mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & target_end > 18030411 & target_start < 24166715) %>% arrange(target_start))
+```
+Visualize a whole-chromosome alignment
+```{r}
+mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & query_name == "NC_045768.1")
+ggplot(data = mashmap_subset) + 
+  lims(x = c(0, max(mashmap_subset$target_end)), y = c(0, max(mashmap_subset$query_end))) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
+  geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
+```
+
+Zoom in
+```{r}
+mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & query_name == "NC_045768.1")
+ggplot(data = mashmap_subset) + 
+  lims(x = c(1e7, 3e7), y = c(8e7, 10e7)) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
+  geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
+```
+The size of the inverted region is approximately 2.2e7 - 1.8e7 = 4e6, i.e., 4 Mbp
+
+Zoom in on the first copy of CDK20
+```{r}
+mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & query_name == "NC_045768.1")
+ggplot(data = mashmap_subset) + 
+  lims(x = c(1.75e7, 1.9e7), y = c(8e7, 10e7)) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
+  geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
+```
+Zoom in further, to the segments encompassing the gene
+```{r}
+mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & query_name == "NC_045768.1")
+ggplot(data = mashmap_subset) + 
+  lims(x = c(18.000e6, 18.170e6), y = c(92.230e6, 92.400e6)) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
+  geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  geom_segment(x = 18.000e6, xend = 18.000e6, y = VAQ_GENE$end, yend = VAQ_GENE$start, arrow = arrow(type = "closed", length = unit(0.07, "inches"), angle = 20), color = "red", lwd = 2) +
+  geom_segment(x = BW_GENE_COPY_1$end, xend = BW_GENE_COPY_1$start, y = 92.230e6, yend = 92.230e6, arrow = arrow(type = "closed", length = unit(0.05, "inches"), angle = 20), color = "red", lwd = 2) +
+  labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
+```
+Zoom in on the second blue whale gene
+```{r}
+mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & query_name == "NC_045768.1")
+ggplot(data = mashmap_subset) + 
+  lims(x = c(24.060e6, 24.230e6), y = c(92.230e6, 92.400e6)) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
+  geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  geom_segment(x = 24.060e6, xend = 24.060e6, y = VAQ_GENE$end, yend = VAQ_GENE$start, arrow = arrow(type = "closed", length = unit(0.07, "inches"), angle = 20), color = "red", lwd = 2) +
+  geom_segment(x = BW_GENE_COPY_2$start, xend = BW_GENE_COPY_2$end, y = 92.230e6, yend = 92.230e6, arrow = arrow(type = "closed", length = unit(0.05, "inches"), angle = 20), color = "red", lwd = 2) +
+  labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
+```
+Plot for the paper
+```{r}
+mashmap_subset <- filter(vaq_vs_bw, target_name == "NC_045790.1" & query_name == "NC_045768.1")
+ggplot(data = mashmap_subset) + 
+  lims(x = c(0.5e7, 3.5e7), y = c(7.5e7, 10.5e7)) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
+  geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
+  geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
+  geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
+```
+
+Coordinates of all segments in the plot 
+```{r}
+filter(vaq_vs_bw, target_name == BW_GENE_COPY_2$scaffold, target_start >= 5e6, target_end <= 35e6) %>% write_csv(file = "rearrangement_area_MashMap.csv")
+```
+
