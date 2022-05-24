@@ -131,3 +131,7 @@ ggplot(busco_scores) +
 
 #- save the plot
 ggsave("BUSCO_scores_CF_3in.pdf", width = 3, height = 3*0.618)
+
+# Save the data
+all_qc_stats <- merge(contiguity_stats, busco_scores, by = "speciesname", all = TRUE)
+write_csv(all_qc_stats, "all_qc_stats.csv")
