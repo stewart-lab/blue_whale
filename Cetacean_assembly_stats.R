@@ -44,7 +44,7 @@ ggplot(contiguity_stats) +
   theme(text = element_text(family = "Helvetica", size = 8))
 
 #- save the plot
-ggsave("Contiguity_stats_3in.pdf", width = 3, height = 3*0.618)
+ggsave("Contiguity_stats_3in.pdf", width = 3, height = 3*0.618, useDingbats = F)
 
 # Extract BUSCO scores
 busco_colnames <- multi_summs[[1]]$busco  %>% names
@@ -83,7 +83,7 @@ ggplot(busco_scores) +
   theme(text = element_text(family = "Helvetica", size = 8))
 
 #- save the plot
-ggsave("BUSCO_scores_CD_3in.pdf", width = 3, height = 3*0.618)
+ggsave("BUSCO_scores_CD_3in.pdf", width = 3, height = 3*0.618, useDingbats = F)
 
 # Plot BUSCO scores, Fragmented and Missing
 ggplot(busco_scores) + 
@@ -107,7 +107,7 @@ ggplot(busco_scores) +
   theme(text = element_text(family = "Helvetica", size = 8))
 
 #- save the plot
-ggsave("BUSCO_scores_FM_3in.pdf", width = 3, height = 3*0.618)
+ggsave("BUSCO_scores_FM_3in.pdf", width = 3, height = 3*0.618, useDingbats = F)
 
 # Plot BUSCO scores, Complete and Fragmented
 ggplot(busco_scores) + 
@@ -130,7 +130,7 @@ ggplot(busco_scores) +
   theme(text = element_text(family = "Helvetica", size = 8))
 
 #- save the plot
-ggsave("BUSCO_scores_CF_3in.pdf", width = 3, height = 3*0.618)
+ggsave("BUSCO_scores_CF_3in.pdf", width = 3, height = 3*0.618, useDingbats = F)
 
 # Save the data
 all_qc_stats <- merge(contiguity_stats, busco_scores, by = "speciesname", all = TRUE)
