@@ -8,8 +8,9 @@
 library(tidyverse)
 
 # Directory paths
-GENE_LISTS <- "/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/BWGENOME-439_text_mining"
-setwd("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Gene_lists/4_body_size")
+GENE_LISTS <- "/Volumes/home/Projects/BWGENOME/BWGENOME-439_text_mining"
+DIFF_COPY_NUMBER_GENES <- "/Volumes/home/Projects/BWGENOME/final_stage_analyses/Gene_lists/2_differential_copy_number/Version_2/diff_copy_num_genes.csv"
+setwd("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Gene_lists/4_body_size/Version_2")
 
 # Curated gene lists
 # - dogs
@@ -35,10 +36,10 @@ gene_table <- merge(gene_table, sheep_table, by = "gene", all.x = TRUE, all.y = 
 km_genes <- c() # this vector will contain a union of all genes found by KinderMiner searches
 
 # - Kalpana's files
-files <- c("C0005901_body_size_evaluationResult_defaultpvaue.txt",
-           "C0013336_dwarfism_evaluationResult_defaultpvaue.txt",
-           "C0017547_Genetic_giant_evaluationResult_defaultpvaue.txt",
-           "C1849265_overgrowth_evaluationResult_defaultpvalue.txt")
+files <- c("Body_size/C0005901_body_size_evaluationResult_defaultpvaue.txt",
+           "Dwarfism/C0013336_dwarfism_evaluationResult_defaultpvaue.txt",
+           "Gigantism/C0017547_Genetic_giant_evaluationResult_defaultpvaue.txt",
+           "Overgrowth/C1849265_overgrowth_evaluationResult_defaultpvalue.txt")
 for (f in files) {
   if (f == "README.txt") next
   km <- paste0(GENE_LISTS, "/Kalpana/KM_gene_vs_diseases_BlueWhales/KM_condition_vs_genes/",f) %>% read_tsv()
@@ -73,7 +74,7 @@ gene_table %>% arrange(desc(score), gene) %>%
   write_csv("body_size_genes_scored_by_evidence.csv")
 
 # Join to differentially duplicated genes
-diff_dups <- read_csv("../2_differential_copy_number/diff_copy_num_genes.csv")
+diff_dups <- read_csv(DIFF_COPY_NUMBER_GENES)
 ddbs <- merge(diff_dups, gene_table, by = "gene")
-ddbs %>% arrange(desc(mBalMus1), desc(score), gene) %>% 
+ddbs %>% arrange(desc(Blue_whale), desc(score), gene) %>% 
   write_csv("differentially_duplicated_body_size_genes.csv")
