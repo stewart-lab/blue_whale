@@ -86,7 +86,7 @@ vaq_genes <- entrez_search(db = "gene", term = term)
 vaq_genes_sum <- entrez_summary(db = "gene", id = vaq_genes$ids)
 ```
 
-### Plot
+### Plot in blue whale coordinates
 ```{r}
 lwd1 = 5
 
@@ -172,4 +172,101 @@ text(start, 3, "Vaquita", col = "orange", adj = c(0,1))
 ```
 
 
+### Plot in vaquita coordinates and save to a pdf file
+```{r}
+pdf("XRCC1 bw vs vaq plot.pdf", width = 7, height = 7*0.618, useDingbats = F)
+lwd1 = 5
+start <- mashmap_subset$query_end[1] - 1e5
+end <- mashmap_subset$query_start[2] + 1e5
 
+# Initial area of the plot
+plot(c(start,end), c(1,7), type = "n", xlab = "Vaquita genome coordinate", ylab = "", yaxt = "n")
+
+# Blue whale genome segments
+segments(start, 6, mashmap_subset$query_end[1], 6, col = "blue", lwd = lwd1, lend = 1)
+segments(mashmap_subset$query_start[2], 4, end, 4, col = "blue", lwd = lwd1, lend = 1)
+segments(mashmap_subset$query_end[1], 6, mashmap_subset$query_start[2], 4, col = "blue", lwd = 1, lend = 1, lty = 2)
+
+# Vaquita genome segment
+segments(start, 2, end, 2, col = "orange", lwd = lwd1, lend = 1)
+
+# Plot blue whale genes
+gene_names_to_plot <- c("CADM4","IRGQ","XRCC1","PHLDB3","LYPD3","SRRM5","LOC118885654")
+for (gene in bw_genes_sum) {
+  if (gene$name %in% c("XRCC1","LOC118885654")) {
+    col1 = "red"
+  } else {
+    col1 = "grey"
+  }
+  
+  # Compute coordinates to plot the gene at
+  # mashmap_subset$target_end[1] is the break point: assign the gene to the top segment if it's to the left of the break point and to the bottom otherwise
+  # The offsets to convert blue whale gene coordinates to vaquita are based on the position of XRCC1 genes. 
+  # The members of gene summary lists are named by NCBI Gene IDs:
+  # Vaquita XRCC1 = 116744422
+  # Blue whale XRCC1 = 118885485
+  # Blue whale LOC118885654 = 118885654
+  
+  if ((gene$genomicinfo$chrstart + gene$genomicinfo$chrstop)/2 < mashmap_subset$target_end[1]) {
+    y <- 6
+#    offset <- mashmap_subset$query_end[1] - mashmap_subset$target_end[1]
+    offset <- (vaq_genes_sum[["116744422"]]$genomicinfo$chrstart +
+                 vaq_genes_sum[["116744422"]]$genomicinfo$chrstop) / 2 -
+      (bw_genes_sum[["118885485"]]$genomicinfo$chrstart +
+                 bw_genes_sum[["118885485"]]$genomicinfo$chrstop) / 2
+  } else {
+    y <- 4
+#    offset <- mashmap_subset$query_start[2] - mashmap_subset$target_start[2] + 5e3
+    offset <- (vaq_genes_sum[["116744422"]]$genomicinfo$chrstart +
+                 vaq_genes_sum[["116744422"]]$genomicinfo$chrstop) / 2 -
+      (bw_genes_sum[["118885654"]]$genomicinfo$chrstart +
+                 bw_genes_sum[["118885654"]]$genomicinfo$chrstop) / 2
+  }
+  gene_start <- gene$genomicinfo$chrstart + offset
+  gene_stop <- gene$genomicinfo$chrstop + offset
+  # Now plot the gene
+  if (gene$genomicinfo$chrstart < gene$genomicinfo$chrstop) {
+    arrows(gene$genomicinfo$chrstart+offset, y+0.2, 
+           gene$genomicinfo$chrstop+offset, y+0.2, 
+           col = col1, lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene$genomicinfo$chrstart+offset, y+0.3, gene$name, cex = 0.5, adj = c(0,0))  
+    }
+  } else {
+    arrows(gene$genomicinfo$chrstart+offset, y-0.2, 
+           gene$genomicinfo$chrstop+offset, y-0.2, 
+           col = col1, lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene$genomicinfo$chrstop+offset, y-0.3, gene$name, cex = 0.5, adj = c(0,1))  
+    }
+  }
+}
+
+# Plot vaquita genes
+for (gene in vaq_genes_sum) {
+  if (gene$name %in% c("XRCC1","LOC118885654")) {
+    col1 = "red"
+  } else {
+    col1 = "grey"
+  }
+  if (gene$genomicinfo$chrstart < gene$genomicinfo$chrstop) {
+    arrows(gene$genomicinfo$chrstart, 2.2, gene$genomicinfo$chrstop, 2.2, col = col1, 
+             lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene$genomicinfo$chrstart, 2.3, gene$name, cex = 0.5, adj = c(0,0))  
+    }
+  } else {
+    arrows(gene$genomicinfo$chrstart, 1.8, gene$genomicinfo$chrstop, 1.8, col = col1, 
+             lwd = lwd1, length = 0.05)
+    if (gene$name %in% gene_names_to_plot) {
+      text(gene$genomicinfo$chrstop, 1.7, gene$name, cex = 0.5, adj = c(0,1))  
+    }
+  }
+}
+
+# Label the two genomes
+text(start, 7, "Blue whale", col = "blue", adj = c(0,1))
+text(start, 3, "Vaquita", col = "orange", adj = c(0,1))
+
+dev.off()
+```
