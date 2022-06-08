@@ -166,6 +166,11 @@ ggplot(data = mashmap_subset) +
   labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
 ```
 
+# save the plot
+```{r}
+ggsave("CDK20_bw_vs_vaq_genomes_plot.pdf", width = 7, height = 7*0.618, useDingbats = F)
+```
+
 Coordinates of all segments in the plot 
 ```{r}
 filter(vaq_vs_bw, target_name == BW_GENE_COPY_2$scaffold, target_start >= 5e6, target_end <= 35e6) %>% write_csv(file = "rearrangement_area_MashMap.csv")
