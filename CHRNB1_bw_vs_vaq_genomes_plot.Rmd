@@ -203,8 +203,8 @@ Plot for the paper
 ```{r}
 ggplot(data = mashmap_subset) + 
   lims(x = c(50.49e6, 50.92e6), y = c(7e6, 34e6)) +
-  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+"), lwd = 2) + 
-  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-"), lwd = 2) +
+  geom_segment(aes(x = target_start, xend = target_end, y = query_start, yend = query_end), data = filter(mashmap_subset, strand == "+")) + 
+  geom_segment(aes(x = target_start, xend = target_end, y = query_end, yend = query_start), data = filter(mashmap_subset, strand == "-")) +
   geom_vline(xintercept = BW_GENE_COPY_1$start, lty = 2, col = "red", cex = 0.2) +
   geom_vline(xintercept = BW_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
   geom_vline(xintercept = BW_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
@@ -213,11 +213,15 @@ ggplot(data = mashmap_subset) +
   geom_hline(yintercept = VAQ_GENE_COPY_1$end, lty = 2, col = "red", cex = 0.2) +
   geom_hline(yintercept = VAQ_GENE_COPY_2$start, lty = 2, col = "red", cex = 0.2) +
   geom_hline(yintercept = VAQ_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
+  geom_text(x = BW_GENE_COPY_1$end, y = 7e6, label = BW_GENE_COPY_1$name, col = "red", hjust = 1, size = 3, vjust = 1.7) +
+  geom_text(x = BW_GENE_COPY_2$end, y = 7e6, label = BW_GENE_COPY_2$name, col = "red", hjust = 1, size = 3, vjust = 1.7) +
+  geom_text(x = 50.49e6, y = VAQ_GENE_COPY_1$end, label = VAQ_GENE_COPY_1$name, col = "red", vjust = -1, size = 3) +
+  geom_text(x = 50.49e6, y = VAQ_GENE_COPY_2$end, label = VAQ_GENE_COPY_2$name, col = "red", vjust = -1, size = 3, hjust = 0.3) +
   labs(x = "blue whale chromosome 20", y = "vaquita chromosome 20")
 ```
 
 # save the plot
 ```{r}
-ggsave("CHRNB1_bw_vs_vaq_genomes_plot.pdf", width = 7, height = 7*0.618, useDingbats = F)
+ggsave("Panel B, CHRNB1_bw_vs_vaq_genomes_plot.pdf", width = 7, height = 7*0.618, useDingbats = F)
 ```
 
