@@ -163,6 +163,9 @@ ggplot(data = mashmap_subset) +
   geom_vline(xintercept = BW_GENE_COPY_2$end, lty = 2, col = "red", cex = 0.2) +
   geom_hline(yintercept = VAQ_GENE$start, lty = 2, col = "red", cex = 0.2) +
   geom_hline(yintercept = VAQ_GENE$end, lty = 2, col = "red", cex = 0.2) +
+  geom_text(x = BW_GENE_COPY_1$start, y = 7.5e7, label = BW_GENE_COPY_1$name, col = "red", hjust = 1, size = 3, vjust = 1.7) +
+  geom_text(x = BW_GENE_COPY_2$start, y = 7.5e7, label = BW_GENE_COPY_2$name, col = "red", hjust = 1, size = 3, vjust = 1.7) +
+  geom_text(x = 0.5e7, y = VAQ_GENE$end, label = VAQ_GENE$name, col = "red", vjust = -1, size = 3) +
   labs(x = "blue whale chromosome 6", y = "vaquita chromosome 6")
 ```
 
