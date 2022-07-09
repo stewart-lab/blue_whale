@@ -17,14 +17,24 @@ Yury V Bukhman, 18 Feb 2022
 Project: /BWGENOME/Interesting_genes/IGF1/body-size-loci_try2_artriodactyls-etc/3_body-size-loci
 
 ## Set-up
+Working directory
+```{r}
+TOP_DIR <- "//isi500.morgridge.us/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/IGF1/"
+#TOP_DIR <- "/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/IGF1/"
+#TOP_DIR <- "/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/IGF1/"
+setwd(paste0(TOP_DIR,"body-size-loci_try2_artriodactyls-etc/3_body-size-loci"))
+```
+
+Libraries
 ```{r warning=FALSE, message=FALSE}
 library(tidyverse)
 library(sequencing)
-# setwd("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/IGF1/body-size-loci_try2_artriodactyls-etc/3_body-size-loci")
-setwd("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/IGF1/body-size-loci_try2_artriodactyls-etc/3_body-size-loci")
-# pantheria <- read_tsv("/Users/ybukhman/Google Drive/Morgridge/Projects/BWGENOME/Interesting_genes/IGF1/PanTHERIA_1-0_WR05_Aug2008.txt")
-pantheria <- read_tsv("/Volumes/home/Projects/BWGENOME/final_stage_analyses/Interesting_genes/IGF1/PanTHERIA_1-0_WR05_Aug2008.txt")
 ```
+Load Pantheria database
+```{r}
+pantheria <- read_tsv(paste0(TOP_DIR,"PanTHERIA_1-0_WR05_Aug2008.txt"))
+```
+
 
 ### Functions
 Plot the distribution of nucleotide bases vs. log10(body mass) at a specified position in the alignment
@@ -283,16 +293,22 @@ which(pvals2 < 10^-4.5) + bw_start_col - 1
 ## Plot a selected position
 ```{r}
 # Index
-i <- 48867
+i <- 35626
 
 # Get the data
 alleles <- data.frame(species = my_species, allele = alignment_matrix[,i])
 data1 <- merge(body_mass, alleles, by = "species")
 
 # Plot
+set.seed(20220709)
 ggplot(data1) + geom_jitter(aes(x = habitat, y = adult_body_mass, col = allele), width = 0.25, height = 0) + scale_y_log10() + labs(y = "adult body mass, g")
 ```
-In all of these positions, large whales have the same nucleotide as land artiodactyls, while small cetaceans have a different one. However, the tree computed by Jalview from the alignment does not have large whales clustering with land artiodactyls. Nor does the ClustalW guide tree.
+### save the plot
+```{r}
+ggsave(paste("alignment-column", i, "allele-mass-habitat-plot.pdf", sep="_"), width = 7, height = 7*0.618, useDingbats = F)
+```
+
+In statistically significant positions when accounting for habitat, large whales have the same nucleotide as land artiodactyls, while small cetaceans have a different one. However, the tree computed by Jalview from the alignment does not have large whales clustering with land artiodactyls. Nor does the ClustalW guide tree.
 
 A sequence in the blue whale
 ```{r}
